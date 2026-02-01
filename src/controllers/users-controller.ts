@@ -1,8 +1,12 @@
 import { Request, Response } from 'express';
 import { userRole } from '@prisma/client';
+import { prisma } from "@/database/prisma";
 import { z } from 'zod';
+import { AppError } from '@/utils/AppError';
+import { hash } from 'bcrypt';
 
 class UsersController {
+
   async create(req: Request, res: Response) {
     // lógica de criação de usuário
     const bodySchema = z.object({
@@ -14,11 +18,23 @@ class UsersController {
 
     const { name, email, role, password } = bodySchema;
 
+    const userWithSameEmail = await prisma.user.findUnique({ where: { email }})
+    if (userWithSameEmail) {
+      throw new AppError('Já existe um usuário cadastrado com esse email');
+    }
 
-    
+    const hashedPassword = await hash(password, 8);
 
+    await prisma.user.create({
+      data: {
+        name,
+        email,
+        role,
+        password: hashedPassword,
+      }
+    });
 
-    res.json({ name, email, role, password });
+    res.status(201).json({ message: 'Usuário criado com sucesso' });
   }
 
   async list(req: Request, res: Response) {
