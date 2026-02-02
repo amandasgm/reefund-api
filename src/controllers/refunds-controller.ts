@@ -6,7 +6,7 @@ import { AppError } from "@/utils/AppError";
 class RefundsController {
   async create(req: Request, res: Response) {
 
-    res.status(201).json({ message: "Reembolso criado com sucesso" });
+    res.status(201).json({ message: "ok" });
   }
 }
 

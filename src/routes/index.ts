@@ -3,6 +3,8 @@ import { usersRouter } from "./users-routes";
 import { sessionsRouter } from "./sessions-routes";
 import { refundsRoutes } from "./refunds-routes";
 
+import { ensureAuthenticated } from "@/middlewares/ensure-authenticated";
+
 const routes = Router();
 
 // Rotas publicas
@@ -10,6 +12,7 @@ routes.use("/users", usersRouter);
 routes.use("/sessions", sessionsRouter);
 
 // Rotas privadas
+routes.use(ensureAuthenticated);
 routes.use("/refunds", refundsRoutes);
 
 export { routes };
