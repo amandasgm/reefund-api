@@ -52,12 +52,19 @@ class RefundsController {
 
     const querySchema = z.object({
       name: z.string().optional().default(""),
+      page: z.coerce.number().optional().default(1),
+      perPage: z.coerce.number().optional().default(10),
     });
 
-    const { name } = querySchema.parse(req.query);
-    
+    const { name, page, perPage } = querySchema.parse(req.query);
+
+    // calcular o skip para a paginação
+    const skip = (page - 1) * perPage;
+
     // somente o manager pode ver os reembolsos de todos os funcionários, mas o funcionário só pode ver os seus próprios reembolsos
     const refunds = await prisma.refunds.findMany({
+      skip,
+      take: perPage,
       where: {
         userId: req.user.role === "manager" ? undefined : req.user.id,
         user: {
@@ -75,7 +82,49 @@ class RefundsController {
       throw new AppError("No refunds found for the given name", 404);
     }
 
-    res.json({ refunds });
+    // total de registros para calcular o total de páginas  
+    const totalRefunds = await prisma.refunds.count({
+      where: {
+        userId: req.user.role === "manager" ? undefined : req.user.id,
+        user: {
+            name: {
+              contains: name.trim(),
+          }
+        }
+      },
+    });  
+      
+
+    const totalPages = Math.ceil(totalRefunds / perPage);
+
+    res.json({ refunds, pagination: { page, perPage, totalRefunds, totalPages: totalPages > 0 ? totalPages : 1 } });
+  }
+
+  async show(req: Request, res: Response) {
+    const paramsSchema = z.object({
+      id: z.string().uuid(),
+    });
+
+    const { id } = paramsSchema.parse(req.params);
+
+    if (!req.user) {
+      throw new AppError("User not authenticated", 401);
+    }
+
+    const refund = await prisma.refunds.findUnique({
+      where: { id },
+      include: { user: true }
+    });
+
+    if (!refund) {
+      throw new AppError("Refund not found", 404);
+    }
+
+    // somente o manager pode ver os reembolsos de todos os funcionários, mas o funcionário só pode ver os seus próprios reembolsos
+    if (req.user.role !== "manager" && refund.userId !== req.user.id) {
+      throw new AppError("You do not have permission to view this refund", 403);
+    }
+    res.json({ refund });
   }
 }
 
